@@ -1,8 +1,8 @@
 #ifndef SET_H
 #define SET_H
 
-// NOTE(niki): returns zero if values are equal,
-// or -1/1 if the first argument is less/greater than the second, respectively
+// NOTE: returns zero if values are equal, or -1/1 if the first
+// argument is less/greater than the second, respectively
 typedef int (*fcmp)(void *, void *); 
 
 struct set_node
@@ -21,19 +21,10 @@ struct set
 };
 
 
-struct set *
-set_create(fcmp);
-
-int
-set_destroy(struct set *);
-
-int
-set_insert(struct set *, void *);
-
-int
-set_remove(struct set *, void *);
-
-int
-set_contains(struct set *, void *);
+struct set *set_create(fcmp);
+int set_destroy(struct set *);
+int set_insert(struct set *, void *);
+int set_remove(struct set *, void *);
+int set_contains(struct set *, void *);
 
 #endif //SET_H
