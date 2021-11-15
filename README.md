@@ -13,6 +13,7 @@ $ ./diffs <dir> <dir>
 
 ## Sample Output
 ```console
+$ ./diffs /tmp/foo /tmp/bar
 Comparing directories "/tmp/foo" and "/tmp/bar"
 lorem.txt CHANGED
 baz/maz/ipsum.txt DELETED
