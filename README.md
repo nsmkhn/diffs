@@ -1,13 +1,9 @@
 # Diff Seeker
 Compare the contents of two directories. Implemented using handmade linked list and BST-based set.
 
-## Build
+## Build & Usage
 ```console
 $ make -Bj
-```
-
-## Usage
-```console
 $ ./diffs <dir> <dir>
 ```
 
