@@ -1,5 +1,5 @@
 # Diff Seeker
-Compare the contents of two directories.
+Compare the contents of two directories. Implemented using handmade BST-based set.
 
 ## Build
 ```console
@@ -19,6 +19,5 @@ lorem.txt CHANGED
 baz/maz/ipsum.txt DELETED
 data.bin CHANGED
 faz/newfile ADDED
-Comparison finished in 0.000302 seconds.
-2 files changed, 1 removed, 1 added
+Comparison finished in 0.000302 seconds. 2 files changed, 1 removed, 1 added
 ```
