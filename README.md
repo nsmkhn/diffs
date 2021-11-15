@@ -1,5 +1,5 @@
 # Diff Seeker
-Compare the contents of two directories. Implemented using handmade BST-based set.
+Compare the contents of two directories. Implemented using handmade linked list and BST-based set.
 
 ## Build
 ```console

@@ -50,13 +50,13 @@ print_filenames(struct set_node *root, char *suffix)
 }
 
 static void
-build_name(char *buf, size_t buflen, char *basename, char *entry)
+fill_namebuf(char *buf, size_t buflen, char *basename, char *entryname)
 {
     bzero(buf, buflen);
     strcat(buf, basename);
     if(basename[strlen(basename)-1] != '/')
         buf[strlen(basename)] = '/';
-    strcat(buf, entry);
+    strcat(buf, entryname);
 }
 
 static char *
@@ -103,7 +103,7 @@ scan_dir_tobtree(char *dirname, char *basename, struct set *files)
         {
             int namelen = strlen(dirname) + DIR_SEP_SIZE + strlen(entry->d_name) + 1;
             char name[namelen];
-            build_name(name, namelen, dirname, entry->d_name);
+            fill_namebuf(name, namelen, dirname, entry->d_name);
             scan_dir_tobtree(name, basename, files);
         }
         else
@@ -136,7 +136,7 @@ scan_dir_tolist(char *dirname, char *basename, struct list *files)
         {
             int namelen = strlen(dirname) + DIR_SEP_SIZE + strlen(entry->d_name) + 1;
             char name[namelen];
-            build_name(name, namelen, dirname, entry->d_name);
+            fill_namebuf(name, namelen, dirname, entry->d_name);
             scan_dir_tolist(name, basename, files);
         }
         else
@@ -155,12 +155,12 @@ scan_dir_tolist(char *dirname, char *basename, struct list *files)
 static bool
 is_file_changed(char *filename, char *fdirname, char *sdirname)
 {
-    int lenf = strlen(filename) + DIR_SEP_SIZE + strlen(fdirname) + 1;
-    int lens = strlen(filename) + DIR_SEP_SIZE + strlen(sdirname) + 1;
-    char fbuf[lenf];
-    char sbuf[lens];
-    build_name(fbuf, lenf, fdirname, filename);
-    build_name(sbuf, lens, sdirname, filename);
+    int flen = strlen(filename) + DIR_SEP_SIZE + strlen(fdirname) + 1;
+    int slen = strlen(filename) + DIR_SEP_SIZE + strlen(sdirname) + 1;
+    char fbuf[flen];
+    char sbuf[slen];
+    fill_namebuf(fbuf, flen, fdirname, filename);
+    fill_namebuf(sbuf, slen, sdirname, filename);
 
     return !files_equal(fbuf, sbuf);
 }
