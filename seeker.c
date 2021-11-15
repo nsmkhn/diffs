@@ -1,4 +1,6 @@
+#include "list.h"
 #include "seeker.h"
+#include "set.h"
 #include <assert.h>
 #include <dirent.h>
 #include <errno.h>
@@ -85,7 +87,7 @@ build_filename(char *dirbasename, char *dirname, char *entry)
 }
 
 void
-scan_dir(char *dirname, struct set *files, char *basename)
+scan_dir_tobtree(char *dirname, char *basename, struct set *files)
 {
     DIR *dir = opendir(dirname);
     if(!dir)
@@ -102,12 +104,45 @@ scan_dir(char *dirname, struct set *files, char *basename)
             int namelen = strlen(dirname) + DIR_SEP_SIZE + strlen(entry->d_name) + 1;
             char name[namelen];
             build_name(name, namelen, dirname, entry->d_name);
-            scan_dir(name, files, basename);
+            scan_dir_tobtree(name, basename, files);
         }
         else
         {
             char *filename = build_filename(basename, dirname, entry->d_name);
             assert(set_insert(files, filename) != 0);
+        }
+        errno = 0;
+    }
+    if(errno)
+        perror_and_exit;
+
+    closedir(dir);
+}
+
+void
+scan_dir_tolist(char *dirname, char *basename, struct list *files)
+{
+    DIR *dir = opendir(dirname);
+    if(!dir)
+        perror_and_exit;
+
+    struct dirent *entry;
+    errno = 0;
+    while((entry = readdir(dir)))
+    {
+        if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+        if(entry->d_type == DT_DIR)
+        {
+            int namelen = strlen(dirname) + DIR_SEP_SIZE + strlen(entry->d_name) + 1;
+            char name[namelen];
+            build_name(name, namelen, dirname, entry->d_name);
+            scan_dir_tolist(name, basename, files);
+        }
+        else
+        {
+            char *filename = build_filename(basename, dirname, entry->d_name);
+            assert(list_add(files, filename) != 0);
         }
         errno = 0;
     }
@@ -130,29 +165,6 @@ is_file_changed(char *filename, char *fdirname, char *sdirname)
     return !files_equal(fbuf, sbuf);
 }
 
-static void
-process_node(struct set_node *root, struct set *s, struct metadata *meta)
-{
-    if(!root)
-        return;
-    if(set_contains(s, root->data))
-    {
-        if(is_file_changed(root->data, meta->fdirname, meta->sdirname))
-        {
-            printf("%s CHANGED\n", (char *) root->data);
-            ++meta->stat.num_changed;
-        }
-        set_remove(s, root->data);
-    }
-    else
-    {
-        ++meta->stat.num_removed;
-        printf("%s DELETED\n", (char *) root->data);
-    }
-    process_node(root->right, s, meta);
-    process_node(root->left, s, meta);
-}
-
 void
 print_diffstat(struct diffstat *stat)
 {
@@ -162,10 +174,30 @@ print_diffstat(struct diffstat *stat)
 }
 
 void
-seek_diff(struct set *fdir_files, struct set *sdir_files, struct metadata *meta)
+seek_diff(struct list *fdir_files, struct set *sdir_files, struct metadata *meta)
 {
     printf("Comparing directories \"%s\" and \"%s\"\n", meta->fdirname, meta->sdirname);
-    process_node(fdir_files->root, sdir_files, meta);
+
+    for(struct list_node *curr = fdir_files->head;
+        curr;
+        curr = curr->next)
+    {
+        if(set_contains(sdir_files, curr->data))
+        {
+            if(is_file_changed(curr->data, meta->fdirname, meta->sdirname))
+            {
+                printf("%s CHANGED\n", (char *) curr->data);
+                ++meta->stat.num_changed;
+            }
+            set_remove(sdir_files, curr->data);
+        }
+        else
+        {
+            ++meta->stat.num_removed;
+            printf("%s DELETED\n", (char *) curr->data);
+        }
+    }
+
     meta->stat.num_added += sdir_files->size;
     print_filenames(sdir_files->root, " ADDED");
 }

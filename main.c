@@ -1,4 +1,5 @@
 #include "seeker.h"
+#include "list.h"
 #include "set.h"
 #include <stdio.h>
 #include <string.h>
@@ -22,14 +23,14 @@ main(int argc, char **argv)
     meta.sdirname = argv[2];
 
     clock_t start = clock();
-    struct set *fdir_files = set_create(mstrcmp);
+    struct list *fdir_files = list_create();
     struct set *sdir_files = set_create(mstrcmp);
-    scan_dir(meta.fdirname, fdir_files, meta.fdirname);
-    scan_dir(meta.sdirname, sdir_files, meta.sdirname);
+    scan_dir_tolist(meta.fdirname, meta.fdirname, fdir_files);
+    scan_dir_tobtree(meta.sdirname, meta.sdirname, sdir_files);
     seek_diff(fdir_files, sdir_files, &meta);
     meta.stat.time_spent = (float) (clock() - start) / CLOCKS_PER_SEC;
     print_diffstat(&meta.stat);
-    set_destroy(fdir_files);
+    list_destroy(fdir_files);
     set_destroy(sdir_files);
 
     return 0;
