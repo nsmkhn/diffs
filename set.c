@@ -6,7 +6,7 @@ struct set *
 set_create(fcmp cmp)
 {
     if(!cmp)
-        return(NULL);
+        return NULL;
     
     struct set *set = malloc(sizeof(struct set));
     assert(set != NULL);
@@ -15,7 +15,7 @@ set_create(fcmp cmp)
     set->size = 0;
     set->cmp = cmp;
     
-    return(set);
+    return set;
 }
 
 static void
@@ -48,7 +48,7 @@ int
 set_destroy(struct set *set)
 {
     if(!set)
-        return(0);
+        return 0;
     
     set_destroy_node(set->root);
     
@@ -57,7 +57,7 @@ set_destroy(struct set *set)
     set->size = 0;
     free(set);
     
-    return(1);
+    return 1;
 }
 
 static struct set_node *
@@ -70,7 +70,7 @@ set_create_node(void *data, struct set_node *parent)
     node->parent = parent;
     node->left = node->right = NULL;
     
-    return(node);
+    return node;
 }
 
 static int
@@ -79,7 +79,7 @@ set_attempt_insert(struct set *set, void *data)
     if(!set->root)
     {
         set->root = set_create_node(data, NULL);
-        return(1);
+        return 1;
     }
     
     struct set_node *walk = set->root;
@@ -111,25 +111,25 @@ set_attempt_insert(struct set *set, void *data)
             }
         }
 
-        return(1);
+        return 1;
     }
     
-    return(0);
+    return 0;
 }
 
 int
 set_insert(struct set *set, void *data)
 {
     if(!set || !data)
-        return(0);
+        return 0;
    
     if(set_attempt_insert(set, data))
     {
         ++set->size;
-        return(1);
+        return 1;
     }
 
-    return(0);
+    return 0;
 }
 
 static struct set_node *
@@ -140,7 +140,7 @@ set_locate_node(struct set *set, void *data)
     while(walk && (c = set->cmp(walk->data, data)) != 0)
         walk = c < 0 ? walk->right : walk->left;
     
-    return(walk);
+    return walk;
 }
 
 static struct set_node *
@@ -150,7 +150,7 @@ set_locate_inorder_successor(struct set_node *node)
     while(successor->left)
         successor = successor->left;
     
-    return(successor);
+    return successor;
 }
 
 static void
@@ -218,7 +218,7 @@ int
 set_remove(struct set *set, void *data)
 {
     if(!set || !data)
-        return(0);
+        return 0;
     
     struct set_node *exile = set_locate_node(set, data);
     if(exile)
@@ -227,17 +227,17 @@ set_remove(struct set *set, void *data)
         --set->size;
         free(exile->data);
         free(exile);
-        return(1);
+        return 1;
     }
 
-    return(0);
+    return 0;
 }
 
 int
 set_contains(struct set *set, void *data)
 {
     if(!set || !data)
-        return(0);
+        return 0;
     
-    return(set_locate_node(set, data) ? 1 : 0);
+    return set_locate_node(set, data) ? 1 : 0;
 }

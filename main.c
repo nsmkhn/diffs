@@ -17,10 +17,8 @@
 
 struct diffstat
 {
-    size_t num_changed;
-    size_t num_added;
-    size_t num_removed;
-    double time_spent;
+    size_t num_changed, num_added, num_removed;
+    float time_spent;
 };
 
 struct metadata
@@ -57,7 +55,7 @@ files_equal(char *f1, char *f2)
 int
 mstrcmp(void *s1, void *s2)
 {
-    return(strcmp(s1, s2));
+    return strcmp(s1, s2);
 }
 
 void
@@ -71,7 +69,7 @@ print_filenames(struct set_node *root, char *suffix)
 }
 
 void
-build_dirname(char *buf, size_t buflen, char *basename, char *entry)
+build_name(char *buf, size_t buflen, char *basename, char *entry)
 {
     bzero(buf, buflen);
     strcat(buf, basename);
@@ -93,7 +91,9 @@ build_filename(char *dirbasename, char *dirname, char *entry)
     }
     else
     {
-        char *dir = dirname + strlen(dirbasename) + 1;
+        char *dir = dirname + strlen(dirbasename);
+        if(dirbasename[strlen(dirbasename) - 1] != '/')
+            ++dir;
         len = strlen(dir) + DIR_SEP_SIZE + strlen(entry) + 1;
         filename = malloc(len);
         bzero(filename, len);
@@ -122,7 +122,7 @@ scan_dir(char *dirname, struct set *files, char *basename)
         {
             int namelen = strlen(dirname) + DIR_SEP_SIZE + strlen(entry->d_name) + 1;
             char name[namelen];
-            build_dirname(name, namelen, dirname, entry->d_name);
+            build_name(name, namelen, dirname, entry->d_name);
             scan_dir(name, files, basename);
         }
         else
@@ -139,24 +139,16 @@ scan_dir(char *dirname, struct set *files, char *basename)
 }
 
 bool
-is_file_changed(char *filename, char *fdir_basename, char *sdir_basename)
+is_file_changed(char *filename, char *fdirname, char *sdirname)
 {
-    int lenfirst = strlen(filename) + strlen(fdir_basename) + 1;
-    int lensecond = strlen(filename) + strlen(sdir_basename) + 1;
+    int lenf = strlen(filename) + DIR_SEP_SIZE + strlen(fdirname) + 1;
+    int lens = strlen(filename) + DIR_SEP_SIZE + strlen(sdirname) + 1;
+    char fbuf[lenf];
+    char sbuf[lens];
+    build_name(fbuf, lenf, fdirname, filename);
+    build_name(sbuf, lens, sdirname, filename);
 
-    char namefirst[lenfirst + 1];
-    bzero(namefirst, lenfirst);
-    strcat(namefirst, fdir_basename);
-    namefirst[strlen(fdir_basename)] = '/';
-    strcat(namefirst, filename);
-
-    char namesecond[lenfirst + 1];
-    bzero(namesecond, lensecond);
-    strcat(namesecond, sdir_basename);
-    namesecond[strlen(sdir_basename)] = '/';
-    strcat(namesecond, filename);
-
-    return !files_equal(namefirst, namesecond);
+    return !files_equal(fbuf, sbuf);
 }
 
 void
@@ -168,7 +160,7 @@ process_node(struct set_node *root, struct set *s, struct metadata *meta)
     {
         if(is_file_changed(root->data, meta->fdirname, meta->sdirname))
         {
-            printf("%s\tCHANGED\n", (char *) root->data);
+            printf("%s CHANGED\n", (char *) root->data);
             ++meta->stat.num_changed;
         }
         set_remove(s, root->data);
@@ -176,7 +168,7 @@ process_node(struct set_node *root, struct set *s, struct metadata *meta)
     else
     {
         ++meta->stat.num_removed;
-        printf("%s\tDELETED\n", (char *) root->data);
+        printf("%s DELETED\n", (char *) root->data);
     }
     process_node(root->right, s, meta);
     process_node(root->left, s, meta);
@@ -194,11 +186,11 @@ void
 seek_diff(struct set *fdir_files, struct set *sdir_files,
           struct metadata *meta)
 {
-    printf("Comparing directories \"%s\" and \"%s\" ...\n",
+    printf("Comparing directories \"%s\" and \"%s\"\n",
             meta->fdirname, meta->sdirname);
     process_node(fdir_files->root, sdir_files, meta);
     meta->stat.num_added += sdir_files->size;
-    print_filenames(sdir_files->root, "\tADDED");
+    print_filenames(sdir_files->root, " ADDED");
 }
 
 int
@@ -206,7 +198,7 @@ main(int argc, char **argv)
 {
     if(argc != NUM_ARGS)
     {
-        fprintf(stderr, "Usage: %s <dir1> <dir2>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <dir> <dir>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
