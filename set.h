@@ -27,4 +27,4 @@ int set_insert(struct set *, void *);
 int set_remove(struct set *, void *);
 int set_contains(struct set *, void *);
 
-#endif //SET_H
+#endif
