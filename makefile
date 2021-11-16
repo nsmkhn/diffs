@@ -1,6 +1,6 @@
 CC=cc
-CFLAGS=-c -Wall -Wextra -std=c11 -ggdb -O0
-SOURCES=$(wildcard *.c)
+CFLAGS=-c -Wall -Wextra -std=c11 -ggdb -O0 -I./inc
+SOURCES=$(wildcard src/*.c)
 OBJECTS=$(SOURCES:.c=.o)
 EXE=diffs
 
