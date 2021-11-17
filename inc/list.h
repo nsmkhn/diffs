@@ -10,7 +10,6 @@ struct list_node
 struct list
 {
     struct list_node *head;
-    int unsigned size;
 };
 
 struct list *list_create(void);

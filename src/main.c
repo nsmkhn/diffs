@@ -27,10 +27,10 @@ main(int argc, char **argv)
     scan_dir_tolist(meta.fdirname, meta.fdirname, fdir_files);
     struct set *sdir_files = set_create(mstrcmp);
     scan_dir_tobtree(meta.sdirname, meta.sdirname, sdir_files);
-
     seek_diff(fdir_files, sdir_files, &meta);
     meta.stat.time_spent = (float) (clock() - start) / CLOCKS_PER_SEC;
-    print_diffstat(&meta.stat);
+    printf("Comparison finished in %f seconds. %lu files changed, %lu removed, %lu added\n",
+        meta.stat.time_spent, meta.stat.num_changed, meta.stat.num_removed, meta.stat.num_added);
 
     list_destroy(fdir_files);
     set_destroy(sdir_files);

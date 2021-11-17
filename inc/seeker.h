@@ -20,6 +20,5 @@ struct metadata
 void scan_dir_tolist(char *basename, char *dirname, struct list *files);
 void scan_dir_tobtree(char *basename, char *dirname, struct set *files);
 void seek_diff(struct list *fdir_files, struct set *sdir_files, struct metadata *meta);
-void print_diffstat(struct diffstat *stat);
 
 #endif

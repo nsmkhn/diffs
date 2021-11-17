@@ -7,9 +7,10 @@
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <strings.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #define perror_and_exit do { perror(""); exit(EXIT_FAILURE); } while(0)
 #define DIR_SEP_SIZE 1
@@ -32,6 +33,8 @@ files_equal(char *f1, char *f2)
     char *second = mmap(NULL, sb2.st_size, PROT_READ, MAP_PRIVATE, fd2, 0);
     if(first == MAP_FAILED || second == MAP_FAILED)
         perror_and_exit;
+    close(fd1);
+    close(fd2);
     for(off_t i = 0; i < sb1.st_size; ++i)
         if(first[i] != second[i])
             return false;
@@ -52,7 +55,7 @@ print_filenames(struct set_node *root, char *suffix)
 static void
 fill_namebuf(char *buf, size_t buflen, char *basename, char *entryname)
 {
-    bzero(buf, buflen);
+    memset(buf, 0, buflen);
     strcat(buf, basename);
     if(basename[strlen(basename)-1] != '/')
         buf[strlen(basename)] = '/';
@@ -68,7 +71,7 @@ build_filename(char *dirbasename, char *dirname, char *entryname)
     {
         len = strlen(entryname) + 1;
         filename = malloc(len);
-        bzero(filename, len);
+        memset(filename, 0, len);
     }
     else
     {
@@ -77,7 +80,7 @@ build_filename(char *dirbasename, char *dirname, char *entryname)
             ++dir;
         len = strlen(dir) + DIR_SEP_SIZE + strlen(entryname) + 1;
         filename = malloc(len);
-        bzero(filename, len);
+        memset(filename, 0, len);
         strcat(filename, dir);
         filename[strlen(dir)] = '/';
     }
@@ -166,20 +169,12 @@ is_file_changed(char *filename, char *fdirname, char *sdirname)
 }
 
 void
-print_diffstat(struct diffstat *stat)
-{
-    printf("Comparison finished in %f seconds. ", stat->time_spent);
-    printf("%lu files changed, %lu removed, %lu added\n",
-            stat->num_changed, stat->num_removed, stat->num_added);
-}
-
-void
 seek_diff(struct list *fdir_files, struct set *sdir_files, struct metadata *meta)
 {
     printf("Comparing directories \"%s\" and \"%s\"\n", meta->fdirname, meta->sdirname);
 
     for(struct list_node *curr = fdir_files->head;
-        curr;
+        curr != NULL;
         curr = curr->next)
     {
         if(set_contains(sdir_files, curr->data))
