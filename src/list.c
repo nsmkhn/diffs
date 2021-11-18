@@ -14,12 +14,9 @@ list_create(void)
     return l;
 }
 
-static int
+static void
 list_clear(struct list *l)
 {
-    if(!l)
-        return 0;
-
     struct list_node *curr = l->head;
     while(curr)
     {
@@ -31,8 +28,6 @@ list_clear(struct list *l)
         curr = next;
     }
     l->head = NULL;
-    
-    return 1;
 }
 
 int

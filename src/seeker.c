@@ -12,8 +12,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define perror_and_exit do { perror(""); exit(EXIT_FAILURE); } while(0)
-#define DIR_SEP_SIZE 1
+#define perror_and_exit(s) do { perror(s); exit(EXIT_FAILURE); } while(0)
+#define DIR_SEP '/'
+#define DIR_SEP_LEN 1
 
 static bool
 files_equal(char *f1, char *f2)
@@ -21,25 +22,28 @@ files_equal(char *f1, char *f2)
     int fd1 = open(f1, O_RDONLY);
     int fd2 = open(f2, O_RDONLY);
     if(fd1 == -1 || fd2 == -1)
-        perror_and_exit;
+        perror_and_exit("open");
 
     struct stat sb1, sb2;
     if(fstat(fd1, &sb1) == -1 || fstat(fd2, &sb2) == -1)
-        perror_and_exit;
-    if(sb2.st_size != sb1.st_size)
-        return false;
-
-    char *first = mmap(NULL, sb1.st_size, PROT_READ, MAP_PRIVATE, fd1, 0);
-    char *second = mmap(NULL, sb2.st_size, PROT_READ, MAP_PRIVATE, fd2, 0);
-    if(first == MAP_FAILED || second == MAP_FAILED)
-        perror_and_exit;
+        perror_and_exit("fstat");
+    bool res = sb2.st_size == sb1.st_size;
+    if(res)
+    {
+        char *first = mmap(NULL, sb1.st_size, PROT_READ, MAP_PRIVATE, fd1, 0);
+        char *second = mmap(NULL, sb2.st_size, PROT_READ, MAP_PRIVATE, fd2, 0);
+        if(first == MAP_FAILED || second == MAP_FAILED)
+            perror_and_exit("mmap");
+        for(off_t i = 0; i < sb1.st_size && res; ++i)
+            if(first[i] != second[i])
+                res = false;
+        munmap(first, sb1.st_size);
+        munmap(second, sb2.st_size);
+    }
     close(fd1);
     close(fd2);
-    for(off_t i = 0; i < sb1.st_size; ++i)
-        if(first[i] != second[i])
-            return false;
 
-    return true;
+    return res;
 }
 
 static void
@@ -57,8 +61,8 @@ fill_namebuf(char *buf, size_t buflen, char *basename, char *entryname)
 {
     memset(buf, 0, buflen);
     strcat(buf, basename);
-    if(basename[strlen(basename)-1] != '/')
-        buf[strlen(basename)] = '/';
+    if(basename[strlen(basename)-1] != DIR_SEP)
+        buf[strlen(basename)] = DIR_SEP;
     strcat(buf, entryname);
 }
 
@@ -75,14 +79,14 @@ build_filename(char *dirbasename, char *dirname, char *entryname)
     }
     else
     {
-        char *dir = dirname + strlen(dirbasename);
-        if(dirbasename[strlen(dirbasename) - 1] != '/')
-            ++dir;
-        len = strlen(dir) + DIR_SEP_SIZE + strlen(entryname) + 1;
+        dirname += strlen(dirbasename);
+        if(dirbasename[strlen(dirbasename) - 1] != DIR_SEP)
+            ++dirname;
+        len = strlen(dirname) + DIR_SEP_LEN + strlen(entryname) + 1;
         filename = malloc(len);
         memset(filename, 0, len);
-        strcat(filename, dir);
-        filename[strlen(dir)] = '/';
+        strcat(filename, dirname);
+        filename[strlen(dirname)] = DIR_SEP;
     }
     strcat(filename, entryname);
 
@@ -94,7 +98,7 @@ scan_dir_tobtree(char *dirname, char *basename, struct set *files)
 {
     DIR *dir = opendir(dirname);
     if(!dir)
-        perror_and_exit;
+        perror_and_exit("opendir");
 
     struct dirent *entry;
     errno = 0;
@@ -104,7 +108,7 @@ scan_dir_tobtree(char *dirname, char *basename, struct set *files)
             continue;
         if(entry->d_type == DT_DIR)
         {
-            int namelen = strlen(dirname) + DIR_SEP_SIZE + strlen(entry->d_name) + 1;
+            int namelen = strlen(dirname) + DIR_SEP_LEN + strlen(entry->d_name) + 1;
             char name[namelen];
             fill_namebuf(name, namelen, dirname, entry->d_name);
             scan_dir_tobtree(name, basename, files);
@@ -117,7 +121,7 @@ scan_dir_tobtree(char *dirname, char *basename, struct set *files)
         errno = 0;
     }
     if(errno)
-        perror_and_exit;
+        perror_and_exit("readdir");
 
     closedir(dir);
 }
@@ -127,7 +131,7 @@ scan_dir_tolist(char *dirname, char *basename, struct list *files)
 {
     DIR *dir = opendir(dirname);
     if(!dir)
-        perror_and_exit;
+        perror_and_exit("opendir");
 
     struct dirent *entry;
     errno = 0;
@@ -137,7 +141,7 @@ scan_dir_tolist(char *dirname, char *basename, struct list *files)
             continue;
         if(entry->d_type == DT_DIR)
         {
-            int namelen = strlen(dirname) + DIR_SEP_SIZE + strlen(entry->d_name) + 1;
+            int namelen = strlen(dirname) + DIR_SEP_LEN + strlen(entry->d_name) + 1;
             char name[namelen];
             fill_namebuf(name, namelen, dirname, entry->d_name);
             scan_dir_tolist(name, basename, files);
@@ -150,7 +154,7 @@ scan_dir_tolist(char *dirname, char *basename, struct list *files)
         errno = 0;
     }
     if(errno)
-        perror_and_exit;
+        perror_and_exit("readdir");
 
     closedir(dir);
 }
@@ -158,8 +162,8 @@ scan_dir_tolist(char *dirname, char *basename, struct list *files)
 static bool
 is_file_changed(char *filename, char *fdirname, char *sdirname)
 {
-    int flen = strlen(filename) + DIR_SEP_SIZE + strlen(fdirname) + 1;
-    int slen = strlen(filename) + DIR_SEP_SIZE + strlen(sdirname) + 1;
+    int flen = strlen(filename) + DIR_SEP_LEN + strlen(fdirname) + 1;
+    int slen = strlen(filename) + DIR_SEP_LEN + strlen(sdirname) + 1;
     char fbuf[flen];
     char sbuf[slen];
     fill_namebuf(fbuf, flen, fdirname, filename);
