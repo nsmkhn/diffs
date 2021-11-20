@@ -1,15 +1,15 @@
 # Diff Seeker
-Compare the contents of two directories. Implemented using handmade linked list and BST-based set.
+Compare the contents of two directories. Implemented using handmade linked list and [AVL tree](https://en.wikipedia.org/wiki/AVL_tree) based set.
 
 ## Build & Usage
 ```console
 $ make -Bj
-$ ./diffs <dir> <dir>
+$ ./ds <dir> <dir>
 ```
 
 ## Sample Output
 ```console
-$ ./diffs /tmp/foo /tmp/bar
+$ ./ds /tmp/foo /tmp/bar
 Comparing directories "/tmp/foo" and "/tmp/bar"
 lorem.txt CHANGED
 baz/maz/ipsum.txt DELETED

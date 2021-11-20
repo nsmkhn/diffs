@@ -11,6 +11,7 @@ struct set_node
     struct set_node *parent;
     struct set_node *left;
     struct set_node *right;
+    char bf;
 };
 
 struct set

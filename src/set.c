@@ -56,7 +56,7 @@ set_destroy(struct set *set)
     set->cmp = NULL;
     set->size = 0;
     free(set);
-    
+
     return 1;
 }
 
@@ -69,17 +69,18 @@ set_create_node(void *data, struct set_node *parent)
     node->data = data;
     node->parent = parent;
     node->left = node->right = NULL;
+    node->bf = 0;
     
     return node;
 }
 
-static int
+static struct set_node *
 set_attempt_insert(struct set *set, void *data)
 {
     if(!set->root)
     {
         set->root = set_create_node(data, NULL);
-        return 1;
+        return set->root;
     }
     
     struct set_node *walk = set->root;
@@ -96,6 +97,7 @@ set_attempt_insert(struct set *set, void *data)
             else
             {
                 walk->right = set_create_node(data, walk);
+                return walk->right;
             }
         }
         else
@@ -108,13 +110,212 @@ set_attempt_insert(struct set *set, void *data)
             else
             {
                 walk->left = set_create_node(data, walk);
+                return walk->left;
+            }
+        }
+    }
+    
+    return NULL;
+}
+
+static struct set_node *
+rotate_left(struct set_node *x, // root of the subtree to be rotated left
+            struct set_node *z) // right child of x, z is right-heavy
+{
+    struct set_node *t = z->left;
+    x->right = t;
+    if(t)
+        t->parent = x;
+    z->left = x;
+    x->parent = z;
+
+    if(z->bf == 0)
+    {
+        x->bf = 1;
+        z->bf = -1;
+    }
+    else
+    {
+        x->bf = 0;
+        z->bf = 0;
+    }
+
+    return z;
+}
+
+static struct set_node *
+rotate_right(struct set_node *x, // root of the subtree to be rotated right
+             struct set_node *z) // left child of x, x is left-heavy
+{
+    struct set_node *t = z->right;
+    x->left = t;
+    if(t)
+        t->parent = x;
+    z->right = x;
+    x->parent = z;
+
+    if(z->bf == 0)
+    {
+        x->bf = -1;
+        z->bf = 1;
+    }
+    else
+    {
+        x->bf = 0;
+        z->bf = 0;
+    }
+
+    return z;
+}
+
+static struct set_node *
+rotate_leftright(struct set_node *x, // root of subtree to be rotated
+                 struct set_node *z) // its left child, right-heavy
+{
+    struct set_node *y = z->right;
+    struct set_node *t1 = y->left;
+    z->right = t1;
+    if(t1)
+        t1->parent = z;
+    y->left = z;
+    z->parent = y;
+    struct set_node *t2 = y->right;
+    x->left = t2;
+    if(t2)
+        t2->parent = x;
+    y->right = x;
+    x->parent = y;
+
+    if(y->bf == 0)
+    {
+        x->bf = 0;
+        z->bf = 0;
+    }
+    else
+    {
+        if(y->bf > 0)
+        {
+            x->bf = -1;
+            z->bf = 0;
+        }
+        else
+        {
+            x->bf = 0;
+            z->bf = 1;
+        }
+    }
+    y->bf = 0;
+
+    return y;
+}
+
+static struct set_node *
+rotate_rightleft(struct set_node *x, // root of subtree to be rotated
+                 struct set_node *z) // its right child, left-heavy
+{
+    struct set_node *y = z->left;
+    struct set_node *t1 = y->right;
+    z->left = t1;
+    if(t1)
+        t1->parent = z;
+    y->right = z;
+    z->parent = y;
+    struct set_node *t2 = y->left;
+    x->right = t2;
+    if(t2)
+        t2->parent = x;
+    y->left = x;
+    x->parent = y;
+
+    if(y->bf == 0)
+    {
+        x->bf = 0;
+        z->bf = 0;
+    }
+    else
+    {
+        if(y->bf > 0)
+        {
+            x->bf = -1;
+            z->bf = 0;
+        }
+        else
+        {
+            x->bf = 0;
+            z->bf = 1;
+        }
+    }
+    y->bf = 0;
+
+    return y;
+}
+
+static void
+rebalance_oninsert(struct set *set,
+                   struct set_node *z) // newly inserted node
+{
+    for(struct set_node *x = z->parent; x != NULL; x = z->parent)
+    {
+        struct set_node *g, *n;
+        if(z == x->right)
+        {
+            if(x->bf > 0)
+            {
+                g = x->parent;
+                if(z->bf < 0)
+                    n = rotate_rightleft(x, z);
+                else
+                    n = rotate_left(x, z);
+            }
+            else
+            {
+                if(x->bf < 0)
+                {
+                    x->bf = 0;
+                    break;
+                }
+                x->bf = 1;
+                z = x;
+                continue;
+            }
+        }
+        else
+        {
+            if(x->bf < 0)
+            {
+                g = x->parent;
+                if(z->bf > 0)
+                    n = rotate_leftright(x, z);
+                else
+                    n = rotate_right(x, z);
+            }
+            else
+            {
+                if(x->bf > 0)
+                {
+                    x->bf = 0;
+                    break;
+                }
+                x->bf = -1;
+                z = x;
+                continue;
             }
         }
 
-        return 1;
+        n->parent = g;
+        if(g)
+        {
+            if(x == g->left)
+                g->left = n;
+            else
+                g->right = n;
+        }
+        else
+        {
+            set->root = n;
+        }
+        break;
     }
-    
-    return 0;
 }
 
 int
@@ -123,9 +324,11 @@ set_insert(struct set *set, void *data)
     if(!set || !data)
         return 0;
    
-    if(set_attempt_insert(set, data))
+    struct set_node *z = set_attempt_insert(set, data);
+    if(z)
     {
         ++set->size;
+        rebalance_oninsert(set, z);
         return 1;
     }
 
@@ -227,6 +430,7 @@ set_remove(struct set *set, void *data)
         --set->size;
         free(exile->data);
         free(exile);
+        // TODO: Implement self-balancing on delete.
         return 1;
     }
 
