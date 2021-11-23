@@ -17,8 +17,13 @@ struct metadata
     struct diffstat stat;
 };
 
-void scan_dir_tolist(char *basename, char *dirname, struct list *files);
-void scan_dir_tobtree(char *basename, char *dirname, struct set *files);
+enum container_type
+{
+    LIST,
+    SET
+};
+
+void scan_dir(char *basename, char *dirname, enum container_type ctype, void *container);
 void seek_diff(struct list *fdir_files, struct set *sdir_files, struct metadata *meta);
 
 #endif

@@ -24,9 +24,9 @@ main(int argc, char **argv)
 
     clock_t start = clock();
     struct list *fdir_files = list_create();
-    scan_dir_tolist(meta.fdirname, meta.fdirname, fdir_files);
+    scan_dir(meta.fdirname, meta.fdirname, LIST, fdir_files);
     struct set *sdir_files = set_create(mstrcmp);
-    scan_dir_tobtree(meta.sdirname, meta.sdirname, sdir_files);
+    scan_dir(meta.sdirname, meta.sdirname, SET, sdir_files);
     seek_diff(fdir_files, sdir_files, &meta);
     meta.stat.time_spent = (float) (clock() - start) / CLOCKS_PER_SEC;
     printf("Comparison finished in %f seconds. %lu files changed, %lu removed, %lu added\n",

@@ -94,7 +94,8 @@ build_filename(char *dirbasename, char *dirname, char *entryname)
 }
 
 void
-scan_dir_tobtree(char *dirname, char *basename, struct set *files)
+scan_dir(char *dirname, char *basename,
+         enum container_type ctype, void *container)
 {
     DIR *dir = opendir(dirname);
     if(!dir)
@@ -111,45 +112,15 @@ scan_dir_tobtree(char *dirname, char *basename, struct set *files)
             int namelen = strlen(dirname) + DIR_SEP_LEN + strlen(entry->d_name) + 1;
             char name[namelen];
             fill_namebuf(name, namelen, dirname, entry->d_name);
-            scan_dir_tobtree(name, basename, files);
+            scan_dir(name, basename, ctype, container);
         }
         else
         {
             char *filename = build_filename(basename, dirname, entry->d_name);
-            assert(set_insert(files, filename) != 0);
-        }
-        errno = 0;
-    }
-    if(errno)
-        perror_and_exit("readdir");
-
-    closedir(dir);
-}
-
-void
-scan_dir_tolist(char *dirname, char *basename, struct list *files)
-{
-    DIR *dir = opendir(dirname);
-    if(!dir)
-        perror_and_exit("opendir");
-
-    struct dirent *entry;
-    errno = 0;
-    while((entry = readdir(dir)))
-    {
-        if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
-            continue;
-        if(entry->d_type == DT_DIR)
-        {
-            int namelen = strlen(dirname) + DIR_SEP_LEN + strlen(entry->d_name) + 1;
-            char name[namelen];
-            fill_namebuf(name, namelen, dirname, entry->d_name);
-            scan_dir_tolist(name, basename, files);
-        }
-        else
-        {
-            char *filename = build_filename(basename, dirname, entry->d_name);
-            assert(list_add(files, filename) != 0);
+            if(ctype == LIST)
+                assert(list_add(container, filename) != 0);
+            else
+                assert(set_insert(container, filename) != 0);
         }
         errno = 0;
     }
@@ -176,7 +147,6 @@ void
 seek_diff(struct list *fdir_files, struct set *sdir_files, struct metadata *meta)
 {
     printf("Comparing directories \"%s\" and \"%s\"\n", meta->fdirname, meta->sdirname);
-
     for(struct list_node *curr = fdir_files->head;
         curr != NULL;
         curr = curr->next)
@@ -196,7 +166,6 @@ seek_diff(struct list *fdir_files, struct set *sdir_files, struct metadata *meta
             printf("%s DELETED\n", (char *) curr->data);
         }
     }
-
     meta->stat.num_added += sdir_files->size;
     print_filenames(sdir_files->root, " ADDED");
 }
