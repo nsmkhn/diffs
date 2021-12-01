@@ -16,6 +16,8 @@
 #define DIR_SEP '/'
 #define DIR_SEP_LEN 1
 
+static int NAMELEN_MAX;
+
 static bool
 files_equal(char *f1, char *f2)
 {
@@ -51,7 +53,7 @@ print_filenames(struct set_node *root, char *suffix)
 {
     if(!root)
         return;
-    printf("%s%s\n", (char *) root->data, suffix);
+    printf("%-*s%s\n", NAMELEN_MAX, (char *) root->data, suffix);
     print_filenames(root->left, suffix);
     print_filenames(root->right, suffix);
 }
@@ -117,6 +119,8 @@ scan_dir(char *dirname, char *basename,
         else
         {
             char *filename = build_filename(basename, dirname, entry->d_name);
+            NAMELEN_MAX = strlen(filename) > (long unsigned) NAMELEN_MAX ?
+                strlen(filename) : (long unsigned) NAMELEN_MAX;
             if(ctype == LIST)
                 assert(list_add(container, filename) != 0);
             else
@@ -155,7 +159,7 @@ seek_diff(struct list *fdir_files, struct set *sdir_files, struct metadata *meta
         {
             if(is_file_changed(curr->data, meta->fdirname, meta->sdirname))
             {
-                printf("%s CHANGED\n", (char *) curr->data);
+                printf("%-*s CHANGED\n", NAMELEN_MAX, (char *) curr->data);
                 ++meta->stat.num_changed;
             }
             set_remove(sdir_files, curr->data);
@@ -163,7 +167,7 @@ seek_diff(struct list *fdir_files, struct set *sdir_files, struct metadata *meta
         else
         {
             ++meta->stat.num_removed;
-            printf("%s DELETED\n", (char *) curr->data);
+            printf("%-*s DELETED\n", NAMELEN_MAX, (char *) curr->data);
         }
     }
     meta->stat.num_added += sdir_files->size;
