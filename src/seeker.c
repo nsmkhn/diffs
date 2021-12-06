@@ -1,4 +1,3 @@
-#include "list.h"
 #include "seeker.h"
 #include "set.h"
 #include <assert.h>
@@ -7,16 +6,22 @@
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #define perror_and_exit(s) do { perror(s); exit(EXIT_FAILURE); } while(0)
 #define DIR_SEP '/'
 #define DIR_SEP_LEN 1
 
-static int NAMELEN_MAX;
+struct diffargs
+{
+    struct set *files;
+    struct metadata *meta;
+};
 
 static bool
 files_equal(char *f1, char *f2)
@@ -53,7 +58,7 @@ print_filenames(struct set_node *root, char *suffix)
 {
     if(!root)
         return;
-    printf("%-*s%s\n", NAMELEN_MAX, (char *) root->data, suffix);
+    printf("%s%s\n", (char *) root->data, suffix);
     print_filenames(root->left, suffix);
     print_filenames(root->right, suffix);
 }
@@ -69,7 +74,7 @@ fill_namebuf(char *buf, size_t buflen, char *basename, char *entryname)
 }
 
 static char *
-build_filename(char *dirbasename, char *dirname, char *entryname)
+alloc_and_build_filename(char *dirbasename, char *dirname, char *entryname)
 {
     size_t len;
     char *filename;
@@ -95,9 +100,9 @@ build_filename(char *dirbasename, char *dirname, char *entryname)
     return filename;
 }
 
-void
-scan_dir(char *dirname, char *basename,
-         enum container_type ctype, void *container)
+static void
+process_files_in_dir(char *dirname, char *basename,
+                     void (*file_action)(char *, void *), void *action_args)
 {
     DIR *dir = opendir(dirname);
     if(!dir)
@@ -114,17 +119,12 @@ scan_dir(char *dirname, char *basename,
             int namelen = strlen(dirname) + DIR_SEP_LEN + strlen(entry->d_name) + 1;
             char name[namelen];
             fill_namebuf(name, namelen, dirname, entry->d_name);
-            scan_dir(name, basename, ctype, container);
+            process_files_in_dir(name, basename, file_action, action_args);
         }
         else
         {
-            char *filename = build_filename(basename, dirname, entry->d_name);
-            NAMELEN_MAX = strlen(filename) > (long unsigned) NAMELEN_MAX ?
-                strlen(filename) : (long unsigned) NAMELEN_MAX;
-            if(ctype == LIST)
-                assert(list_add(container, filename) != 0);
-            else
-                assert(set_insert(container, filename) != 0);
+            char *filename = alloc_and_build_filename(basename, dirname, entry->d_name);
+            file_action(filename, action_args);
         }
         errno = 0;
     }
@@ -147,29 +147,50 @@ is_file_changed(char *filename, char *fdirname, char *sdirname)
     return !files_equal(fbuf, sbuf);
 }
 
+static int
+mstrcmp(void *s1, void *s2)
+{
+    return strcmp(s1, s2);
+}
+
+static void
+save_filename_a(char *filename, void *args)
+{
+    struct set *files = (struct set *) args;
+    assert(set_insert(files, filename) != 0);
+}
+
+static void
+diff_file_a(char *filename, void *args)
+{
+    struct diffargs *dargs = (struct diffargs *) args;
+    if(set_contains(dargs->files, filename))
+    {
+        if(is_file_changed(filename, dargs->meta->fdirname, dargs->meta->sdirname))
+        {
+            printf("%s CHANGED\n", filename);
+            ++dargs->meta->stat.num_changed;
+        }
+        set_remove(dargs->files, filename);
+    }
+    else
+    {
+        printf("%s ADDED\n", filename);
+        ++dargs->meta->stat.num_added;
+    }
+    free(filename);
+}
+
 void
-seek_diff(struct list *fdir_files, struct set *sdir_files, struct metadata *meta)
+seek_diff(struct metadata *meta)
 {
     printf("Comparing directories \"%s\" and \"%s\"\n", meta->fdirname, meta->sdirname);
-    for(struct list_node *curr = fdir_files->head;
-        curr != NULL;
-        curr = curr->next)
-    {
-        if(set_contains(sdir_files, curr->data))
-        {
-            if(is_file_changed(curr->data, meta->fdirname, meta->sdirname))
-            {
-                printf("%-*s CHANGED\n", NAMELEN_MAX, (char *) curr->data);
-                ++meta->stat.num_changed;
-            }
-            set_remove(sdir_files, curr->data);
-        }
-        else
-        {
-            ++meta->stat.num_removed;
-            printf("%-*s DELETED\n", NAMELEN_MAX, (char *) curr->data);
-        }
-    }
-    meta->stat.num_added += sdir_files->size;
-    print_filenames(sdir_files->root, " ADDED");
+    clock_t start = clock();
+    struct set *fdir_files = set_create(mstrcmp);
+    process_files_in_dir(meta->fdirname, meta->fdirname, save_filename_a, fdir_files);
+    process_files_in_dir(meta->sdirname, meta->sdirname, diff_file_a, &(struct diffargs) { .files = fdir_files, .meta = meta });
+    meta->stat.num_removed += fdir_files->size;
+    print_filenames(fdir_files->root, " DELETED");
+    meta->stat.time_spent = (float) (clock() - start) / CLOCKS_PER_SEC;
+    set_destroy(fdir_files);
 }
